@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+
+  external_labels:
+    monitor: 'media_search' 
+
+scrape_configs:
+  - job_name: 'media_search'
+
+    scrape_interval: 4s
+
+    static_configs:
+      - targets: ['localhost:9888']
