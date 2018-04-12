@@ -11,7 +11,6 @@ body.app {
 	top: 0;
 	display: flex;
 	flex-direction: column;
-	align-content: center;
 }
 
 .section {
@@ -20,7 +19,6 @@ body.app {
 
 .search-section {
 	display: flex;
-	align-content: center;
 	justify-content: center;
 }
 
@@ -124,4 +122,45 @@ body.app {
 	font-size: 3em;
 	display: block;
 	text-align: center;
+}
+
+.loader.modal-loader {
+	color: rgba(0, 0, 0, .8);
+	height: 48px;
+	width: 48px;
+	position: absolute;
+}
+
+.modal-background {
+	z-index: 999;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, .3);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.modal {
+    height: fit-content;
+    border-radius: 4px;
+	padding: 10px;
+	background: #fff;
+
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.modal-loader {
+	z-index: 1;
+}
+
+.modal-iframe {
+	z-index: 2;
+	border: none;
 }
