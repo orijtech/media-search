@@ -50,6 +50,7 @@ function collapseSearchSection() {
 	}
 
 	nodes.searchSection.classList.add('search-section-collapsed');
+	nodes.resultsSection.classList.add('results-section-expanded');
 }
 
 function clearResults() {
@@ -173,6 +174,7 @@ function showInlinePlayer(youtubeId) {
 	var loader = document.createElement('i');
 	var iframe = document.createElement('iframe');
 
+	document.body.classList.add('modal-active');
 	background.classList.add('modal-background', 'js-modal-background');
 	modal.classList.add('modal');
 	loader.classList.add('material-icons', 'loader', 'modal-loader');
@@ -192,8 +194,12 @@ function showInlinePlayer(youtubeId) {
 	modal.appendChild(iframe);
 	document.body.appendChild(background);
 
+	var scrollTop = window.pageYOffset || (document.documentElement || document.body.parentNode || document.body).scrollTop;
+	background.style.top = scrollTop + 'px';
+
 	background.addEventListener('click', function() {
 		background.parentNode.removeChild(background);
+		document.body.classList.remove('modal-active');
 	});
 }
 

@@ -9,8 +9,11 @@ body.app {
 	right: 0;
 	left: 0;
 	top: 0;
-	display: flex;
-	flex-direction: column;
+}
+
+body.modal-active {
+	height: 100vh;
+	overflow: hidden;
 }
 
 .section {
@@ -20,10 +23,16 @@ body.app {
 .search-section {
 	display: flex;
 	justify-content: center;
+	height: auto;
+	min-height: 50vh;
+
+	-webkit-transition: min-height 800ms ease-out;
+	-moz-transition: min-height 800ms ease-out;
+	-o-transition: min-height 800ms ease-out;
+	transition: min-height 800ms ease-out;
 }
 
 .search-section-collapsed {
-	flex: 0;
 	min-height: 100px;
 }
 
@@ -63,8 +72,16 @@ body.app {
 
 .results-section {
 	background: #87e1ff; /* pleasant blue */
-	/*display: flex;*/
 	padding: 40px 100px;
+	min-height: 50vh;
+	-webkit-transition: min-height 800ms ease-out;
+	-moz-transition: min-height 800ms ease-out;
+	-o-transition: min-height 800ms ease-out;
+	transition: min-height 800ms ease-out;
+}
+
+.results-section-expanded {
+	min-height: calc(100vh - 50px);
 }
 
 .result-container {
@@ -134,10 +151,9 @@ body.app {
 .modal-background {
 	z-index: 999;
 	position: absolute;
-	top: 0;
 	left: 0;
 	right: 0;
-	bottom: 0;
+	height: 100vh;
 	background: rgba(0, 0, 0, .3);
 	display: flex;
 	align-items: center;
