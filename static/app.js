@@ -161,7 +161,7 @@ function onSearchClick() {
 
 	sendRequest({
 		method: 'POST',
-		data: {"q": query, "max_per_page": 20},
+		data: {"q": query, "max_per_page": 50},
 		url: 'http://localhost:9778/search',
 		successCallback: successCallback,
 		errorCallback: errorCallback
