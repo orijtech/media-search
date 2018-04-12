@@ -127,7 +127,7 @@ func init() {
 	// Log into MongoDB
 	mongoServerURI := otils.EnvOrAlternates("MEDIA_SEARCH_MONGO_SERVER_URI", "localhost:27017")
 	mongoClient, err := mongo.NewClient("mongodb://" + mongoServerURI)
-log.Printf("mongoServerURI: %q\n", mongoServerURI)
+	log.Printf("mongoServerURI: %q\n", mongoServerURI)
 	if err != nil {
 		log.Fatalf("Failed to log into Mongo error: %v", err)
 	}
@@ -142,7 +142,9 @@ func main() {
 	mux.Handle("/", http.FileServer(http.Dir("./static")))
 
 	h := &ochttp.Handler{
-		Handler:     mux,
+		// Wrap the handler with CORS
+		Handler: otils.CORSMiddlewareAllInclusive(mux),
+
 		Propagation: &b3.HTTPFormat{},
 	}
 	if err := view.Register(ochttp.DefaultServerViews...); err != nil {
