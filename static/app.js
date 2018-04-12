@@ -100,16 +100,26 @@ function successCallback(response) {
 
 	var results = response[0].Items.map(function(item) {
 		var url = 'https://youtube.com/';
+		var thumbnail = null;
+
 		if (item.id.videoId) {
 			url = url + 'watch?v=' + item.id.videoId;
 		} else {
 			url = url + 'channel/' + item.id.channelId;
 		}
 
+		if (item.snippet.thumbnails.high) {
+			thumbnail = item.snippet.thumbnails.high.url;
+		} else if (item.snippet.thumbnail.medium) {
+			thumbnail = item.snippet.thumbnails.medium.url;
+		} else {
+			item.snippet.thumbnails.default.url;
+		}
+
 		return {
 			url: url,
 			title: item.snippet.title,
-			thumbnail: item.snippet.thumbnails.default.url
+			thumbnail: thumbnail
 		};
 	});
 
