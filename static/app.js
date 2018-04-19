@@ -107,7 +107,7 @@ function appendResult(result) {
 function successCallback(response) {
 	onSearchEnd();
 
-	var results = response[0].Items.map(function(item) {
+	var results = response[0].items.map(function(item) {
 		var url = 'https://youtube.com/';
 		var resultType = null;
 		var thumbnail = null;
@@ -161,7 +161,7 @@ function onSearchClick() {
 
 	sendRequest({
 		method: 'POST',
-		data: {"q": query, "max_per_page": 50},
+		data: {"keywords": query, "maxResultsPerPage": 25},
 		url: 'http://localhost:9778/search',
 		successCallback: successCallback,
 		errorCallback: errorCallback

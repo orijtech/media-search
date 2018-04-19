@@ -62,7 +62,7 @@ func main() {
 			log.Fatalf("Failed to read input: %v", err)
 		}
 		inBlob, err := json.Marshal(map[string]string{
-			"q": string(input),
+			"keywords": string(input),
 		})
 		if err != nil {
 			log.Fatalf("Failed to json.Marshal input blob: %v", err)

@@ -15,12 +15,7 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
-	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -28,6 +23,7 @@ import (
 	"time"
 
 	gat "google.golang.org/api/googleapi/transport"
+	"google.golang.org/grpc"
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
@@ -35,19 +31,22 @@ import (
 	xray "github.com/census-instrumentation/opencensus-go-exporter-aws"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/exporter/stackdriver"
+	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/plugin/ochttp/propagation/b3"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 
+	"github.com/orijtech/media-search/rpc"
 	"github.com/orijtech/otils"
 	"github.com/orijtech/youtube"
 )
 
 var yc *youtube.Client
 var ytSearchesCollection *mongo.Collection
+var genIDClient rpc.GenIDClient
+var searchClient rpc.SearchClient
 
 func init() {
 	xe, err := xray.NewExporter(xray.WithVersion("latest"))
@@ -78,11 +77,7 @@ func init() {
 
 	// And then set the trace config with the default sampler.
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-	view.SetReportingPeriod(250 * time.Millisecond)
-
-	if err := view.Register(ochttp.DefaultServerViews...); err != nil {
-		log.Fatalf("Failed to register views: %v", err)
-	}
+	view.SetReportingPeriod(10 * time.Second)
 
 	mustKey := func(sk string) tag.Key {
 		k, err := tag.NewKey(sk)
@@ -136,6 +131,24 @@ func init() {
 }
 
 func main() {
+	// Firstly dial to the search service
+	searchAddr := ":8899"
+	conn, err := grpc.Dial(searchAddr, grpc.WithInsecure(), grpc.WithStatsHandler(&ocgrpc.ClientHandler{}))
+	if err != nil {
+		log.Fatalf("Failed to dial to gRPC server: %v", err)
+	}
+	searchClient = rpc.NewSearchClient(conn)
+	genIDClient = rpc.NewGenIDClient(conn)
+	log.Printf("Successfully dialed to the gRPC {id, search} services at %q", searchAddr)
+
+	// Subscribe to every view available since the service is a mix of gRPC and HTTP, client and server services.
+	allViews := append(ochttp.DefaultClientViews, ochttp.DefaultServerViews...)
+	allViews = append(allViews, ocgrpc.DefaultClientViews...)
+	allViews = append(allViews, ocgrpc.DefaultServerViews...)
+	if err := view.Register(allViews...); err != nil {
+		log.Fatalf("Failed to register all the default {ocgrpc, ochttp} views: %v", err)
+	}
+
 	addr := ":9778"
 	mux := http.NewServeMux()
 	mux.HandleFunc("/search", search)
@@ -144,11 +157,6 @@ func main() {
 	h := &ochttp.Handler{
 		// Wrap the handler with CORS
 		Handler: otils.CORSMiddlewareAllInclusive(mux),
-
-		Propagation: &b3.HTTPFormat{},
-	}
-	if err := view.Register(ochttp.DefaultServerViews...); err != nil {
-		log.Fatalf("Error register all the default Server views: %v", err)
 	}
 	log.Printf("Serving on %q", addr)
 	if err := http.ListenAndServe(addr, h); err != nil {
@@ -156,58 +164,14 @@ func main() {
 	}
 }
 
-type query struct {
-	Keywords   string `json:"q"`
-	MaxPerPage int64  `json:"max_per_page"`
-	MaxPages   int64  `json:"max_pages"`
-}
-
 type dbCacheKV struct {
+	CacheID   string    `json:"cache_id" bson:"cache_id,omitempty"`
 	Key       string    `json:"key" bson:"key,omitempty"`
 	Value     []byte    `json:"value" bson:"value,omitempty"`
 	CacheTime time.Time `json:"ct" bson:"ct,omitempty"`
 }
 
-func parseQuery(ctx context.Context, req *http.Request) (*query, error) {
-	ctx, span := trace.StartSpan(ctx, "parseQuery")
-	defer span.End()
-
-	var body io.Reader
-	switch req.Method {
-	default:
-		return nil, fmt.Errorf("Unsupported method: %q", req.Method)
-
-	case "POST", "PUT":
-		body = req.Body
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("method", req.Method),
-			trace.BoolAttribute("has_body", true),
-		}, "Parsed a POST/PUT request")
-
-	case "GET":
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("method", "GET"),
-			trace.BoolAttribute("has_body", false),
-		}, "Parsed a GET request")
-
-		qv := req.URL.Query()
-		outMap := make(map[string]string)
-		for key := range qv {
-			outMap[key] = qv.Get(key)
-		}
-		intermediateBlob, err := json.Marshal(outMap)
-		if err != nil {
-			return nil, err
-		}
-		body = bytes.NewReader(intermediateBlob)
-	}
-
-	q := new(query)
-	if err := parseJSON(ctx, body, q); err != nil {
-		return nil, err
-	}
-	return q, nil
-}
+var rpcNothing = new(rpc.Nothing)
 
 func search(w http.ResponseWriter, r *http.Request) {
 	sc := trace.FromContext(r.Context()).SpanContext()
@@ -215,12 +179,11 @@ func search(w http.ResponseWriter, r *http.Request) {
 	ctx, span := trace.StartSpan(r.Context(), "/search")
 	defer span.End()
 
-	q, err := parseQuery(ctx, r)
+	q, err := rpc.ExtractQuery(ctx, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	q.setDefaultLimits()
 
 	keywords := q.Keywords
 	filter := bson.NewDocument(bson.EC.String("key", q.Keywords))
@@ -261,17 +224,20 @@ func search(w http.ResponseWriter, r *http.Request) {
 	// 2. Otherwise that was a cache-miss, now retrieve it then save it
 	stats.Record(ctx, cacheMisses.M(1))
 
+	// 3. Get the global CacheID
+	cacheID, err := genIDClient.NewID(ctx, rpcNothing)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	span.Annotate([]trace.Attribute{
 		trace.BoolAttribute("hit", false),
 		trace.StringAttribute("db", "mongodb"),
 		trace.StringAttribute("driver", "go"),
 	}, "Cache miss, hence YouTube API search")
 
-	pagesChan, err := yc.Search(ctx, &youtube.SearchParam{
-		Query:             keywords,
-		MaxPage:           uint64(q.MaxPages),
-		MaxResultsPerPage: uint64(q.MaxPerPage),
-	})
+	results, err := searchClient.SearchIt(ctx, q)
 	if err != nil {
 		stats.Record(ctx, youtubeAPIErrors.M(1))
 		span.Annotate([]trace.Attribute{
@@ -283,18 +249,15 @@ func search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var pages []*youtube.SearchPage
-	for page := range pagesChan {
-		pages = append(pages, page)
-	}
-	outBlob, err := json.Marshal(pages)
+	outBlob, err := json.Marshal(results.Results)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// 3. Now cache it so that next time it'll be a hit.
+	// 4. Now cache it so that next time it'll be a hit.
 	insertKV := &dbCacheKV{
+		CacheID:   cacheID.Value,
 		Key:       keywords,
 		Value:     outBlob,
 		CacheTime: time.Now(),
@@ -318,23 +281,3 @@ var (
 
 	blankDBKV = new(dbCacheKV)
 )
-
-func parseJSON(ctx context.Context, r io.Reader, recv interface{}) error {
-	ctx, span := trace.StartSpan(ctx, "/parse-json")
-	span.End()
-
-	blob, err := ioutil.ReadAll(r)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(blob, recv)
-}
-
-func (q *query) setDefaultLimits() {
-	if q.MaxPerPage <= 0 {
-		q.MaxPerPage = 5
-	}
-	if q.MaxPages <= 0 {
-		q.MaxPages = 1
-	}
-}

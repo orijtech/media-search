@@ -1,0 +1,77 @@
+// Copyright 2018, OpenCensus Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package rpc;
+
+message ID {
+    string value = 1; 
+}
+
+message Nothing {
+}
+
+message Query {
+    string keywords = 1;
+    int32 maxPages = 2;
+    int32 maxResultsPerPage = 3;
+}
+
+message SearchResult {
+    uint64 index = 1;
+    repeated YouTubeResult items = 2; 
+    string err = 3;
+}
+
+message YouTubeResult {
+    ID itemId = 1;
+    string etag = 2;
+    YouTubeID id = 3;
+    string kind = 4;
+    YouTubeSnippet snippet = 5;
+}
+
+message YouTubeSnippet {
+    string channelId = 1;
+    string channelTitle = 2;
+    string description = 3;
+    string publishedAt = 4;
+    map<string, thumbnail> thumbnails = 5;
+    string title = 6;
+}
+
+message thumbnail {
+    int64 height = 1;
+    int64 width = 2;
+    string url = 3;
+}
+
+message YouTubeID {
+    string kind = 1;
+    string videoId = 2;
+    string playlistId = 3;
+}
+
+service GenID {
+    rpc NewID(Nothing) returns (ID) {}
+}
+
+message SearchResults {
+    repeated SearchResult Results = 1;
+}
+
+service Search {
+    rpc SearchIt(Query) returns (SearchResults) {}
+}

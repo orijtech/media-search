@@ -37,7 +37,7 @@ def doSearch(query):
     res = requests.post('http://localhost:9778/search', json={'q': query})
     pages = res.json()
     for page in pages:
-      items = page['Items']
+      items = page['items']
       for i, item in enumerate(items):
         id = item['id']
         if 'videoId' in id:
