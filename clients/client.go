@@ -24,33 +24,9 @@ import (
 	"net/http"
 	"os"
 
-	xray "github.com/census-instrumentation/opencensus-go-exporter-aws"
-	"go.opencensus.io/exporter/stackdriver"
-	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/trace"
-
 	"github.com/orijtech/otils"
 	"github.com/orijtech/youtube"
 )
-
-func init() {
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-	xe, err := xray.NewExporter(xray.WithVersion("latest"))
-	if err != nil {
-		log.Fatalf("X-Ray newExporter: %v", err)
-	}
-	trace.RegisterExporter(xe)
-	se, err := stackdriver.NewExporter(stackdriver.Options{ProjectID: otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "census-demos")})
-	if err != nil {
-		log.Fatalf("Stackdriver newExporter: %v", err)
-	}
-	trace.RegisterExporter(se)
-	view.RegisterExporter(se)
-	if err := view.Register(ochttp.DefaultClientViews...); err != nil {
-		log.Fatalf("Failed to register views: %v", err)
-	}
-}
 
 func main() {
 	client := &http.Client{}

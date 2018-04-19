@@ -18,11 +18,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
 	"reflect"
 	"time"
 
-	gat "google.golang.org/api/googleapi/transport"
 	"google.golang.org/grpc"
 
 	"github.com/mongodb/mongo-go-driver/bson"
@@ -40,10 +38,8 @@ import (
 
 	"github.com/orijtech/media-search/rpc"
 	"github.com/orijtech/otils"
-	"github.com/orijtech/youtube"
 )
 
-var yc *youtube.Client
 var ytSearchesCollection *mongo.Collection
 var genIDClient rpc.GenIDClient
 var searchClient rpc.SearchClient
@@ -110,14 +106,6 @@ func init() {
 	}
 
 	log.Printf("Successfully finished exporter and view registration")
-
-	envAPIKey := os.Getenv("YOUTUBE_API_KEY")
-	yc, err = youtube.NewWithHTTPClient(&http.Client{
-		Transport: &ochttp.Transport{Base: &gat.APIKey{Key: envAPIKey}},
-	})
-	if err != nil {
-		log.Fatalf("Failed to create youtube API client: %v", err)
-	}
 
 	// Log into MongoDB
 	mongoServerURI := otils.EnvOrAlternates("MEDIA_SEARCH_MONGO_SERVER_URI", "localhost:27017")

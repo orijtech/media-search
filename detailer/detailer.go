@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	gat "google.golang.org/api/googleapi/transport"
@@ -56,7 +55,7 @@ func init() {
 	// Create or get the details collection.
 	ytDetailsCollection = mongoClient.Database("media-searches").Collection("youtube_details")
 
-	envAPIKey := os.Getenv("YOUTUBE_API_KEY")
+	envAPIKey := otils.EnvOrAlternates("YOUTUBE_API_KEY", "AIzaSyCokXpH0NP3MGqaoEFSshet8YGbsOP0lFE")
 	yc, err = yt.NewWithHTTPClient(&http.Client{
 		Transport: &ochttp.Transport{Base: &gat.APIKey{Key: envAPIKey}},
 	})

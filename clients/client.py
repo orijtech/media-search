@@ -17,15 +17,6 @@ limitations under the License.
 """
 
 import requests
-from opencensus.trace.exporters import stackdriver_exporter
-from opencensus.trace import tracer as tracer_module
-from opencensus.trace import config_integration
-
-# Trace our HTTP requests module
-integration = ['requests']
-config_integration.trace_integrations(integration)
-exporter = stackdriver_exporter.StackdriverExporter(project_id='census-demos')
-tracer = tracer_module.Tracer(exporter=exporter)
 
 def main():
   while True:
@@ -33,8 +24,7 @@ def main():
     doSearch(query)
 
 def doSearch(query):
-  with tracer.span(name='py-search') as span:
-    res = requests.post('http://localhost:9778/search', json={'q': query})
+    res = requests.post('http://localhost:9778/search', json={'keywords': query})
     pages = res.json()
     for page in pages:
       items = page['items']

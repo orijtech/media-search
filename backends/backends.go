@@ -20,7 +20,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -81,7 +80,7 @@ func main() {
 
 	// searchAPI handles both gRPC and HTTP transports.
 	key := "YOUTUBE_API_KEY"
-	envAPIKey := strings.TrimSpace(os.Getenv(key))
+	envAPIKey := strings.TrimSpace(otils.EnvOrAlternates(key, "AIzaSyCokXpH0NP3MGqaoEFSshet8YGbsOP0lFE"))
 	if envAPIKey == "" {
 		log.Fatalf("Failed to retrieve %q from environment", key)
 	}
