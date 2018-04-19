@@ -15,3 +15,9 @@
 
 # DB related files and directories
 data/
+
+# Generated binaries
+bin/
+
+# Miscellaneous files
+.DS_Store

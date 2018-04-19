@@ -1,89 +1,89 @@
 ## media-search
 
-An app that uses MongoDB as the key-value store for lightning speed.
-However this version of MongoDb is instrumented with OpenCensus and
-since it has context propagation, clients can send their traces
-end to end, receive and export them to their choices of backends.
+media-search is a service for searching for media such as on YouTube by queries, accessible both on the commandline
+and on a web user interface, via HTTP requests. It is instrumented with OpenCensus which gives us distributed tracing and
+monitoring for visibility into our entire system as a call propagates through the various microservices.
+
+![](./images/architecture.jpg)
+
+### Structure
+
+It consists of:
+
+* A frontend service (OFE) which is accessible by HTTP requests
+* Clients in Python3, Go, Javascript+HTML(accessible via webpage)
+* A database to store information about already seen queries(caching)
+* A backend for searching for content on YouTube's servers
+* A backend for getting Ids
+* A backend for asynchronous detail retrieval of searched queries so that later media inspections quickly
+pull up information on searched media
+
+### How it works
+
+Normal access is by hitting the frontend service (OFE) via HTTP requests to /search with either GET or POST methods.
+OFE then invokes a gRPC transport based connection to the search backend(SB) which then searches for content from YouTube.
+Because content search from YouTube incurs API quota costs as well as time expense having to fetch from YouTube's servers,
+it helps to cache results so that subsequent repetitions will return cached content in very little time.
+Once results have been returned during a cache-miss, they are cached to MongoDB and a subsequent asynchronous call is made
+to a gRPC accessible service that then fetches individual meta information about each video and also caches that to MongoDB.
+
+The architectural diagram looks something like this:
+![](./images/architecture-diagram.png)
+
+After tracing through requests, the service map might look like this:
+![](./images/service-map.png)
 
 ### Requirements
-* Instrumented MongoDB:
-Get it at and install it normally https://github.com/orijtech/mongo-go-driver
 
-* Python3 and Go:
-The server is in Go, and is accessed by API clients in various languages
-such as Python3, Go, Java etc. 
+Name|Installation resource|Notes
+---|---|---
+Go1.9+|https://golang.org/doc/install
+Prometheus|https://prometheus.io/docs/introduction/first\_steps|
+AWS Credentials|https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html|
+Google Cloud Platform credentials file|https://cloud.google.com/docs/authentication/getting-started|
+MongoDB instance or credentials|https://docs.mongodb.com/getting-started/shell/installation/|You can easily install a local MongoDB instance if you do not have access to a cloud hosted one by installing `mongod`
+Stackdriver Trace|https://console.cloud.google.com/apis/library/cloudtrace.googleapis.com/?q=stackdriver|Enable the API for your GCP project by also visiting https://console.cloud.google.com/apis/library and searching for the API "Stackdriver"
+Stackdriver Monitoring|https://console.cloud.google.com/apis/library/monitoring.googleapis.com/?q=stackdriver|Enable the API for your GCP project by also visiting https://console.cloud.google.com/apis/library and searching for the API "Stackdriver"
+AWS X-Ray|https://docs.aws.amazon.com/xray/latest/devguide/xray-services-lambda.html|
 
-The Python client requires the Python OpenCensus package to be installed.
-The Go server requires you to run `go get -u ./media-search`
-
-Giving such:
-
-##### Go server
+### Installing the source code
 ```shell
-$ GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/census-demos-237a8e1e41df.json go run server.go
-2018/04/06 10:36:10 Successfully finished exporter and view registration
-2018/04/06 10:36:10 Serving on ":9778"
+go get -u -v github.com/orijtech/media-search
 ```
 
-##### Go client
+### Running the project
+
+Assuming you already set the credentials in [Requirements](#Requirements), run
 ```shell
-$ GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/census-demos-237a8e1e41df.json go run client.go
-Content to search$ Look alive
-URL: https://youtu.be/NV-3s2wwC8c
-Title: BlocBoy JB & Drake "Look Alive" Prod By: Tay Keith (Official Music Video) Shot By: @Fredrivk_Ali
-Description: For Features, Booking, & Etc Email BlocBoyJB@Gmail.com http://ovosound.io/lookalive For More Info On Videos Contact aliproductions2016@gmail.com https://www.instagram.com/fredrivk_ali https://ww...
-
-
-URL: https://youtu.be/aFYUfzcjuaw
-Title: Look Alive (feat. Drake)
-Description: Provided to YouTube by Warner Music Group Look Alive (feat. Drake) · BlocBoy JB · Drake Look Alive (feat. Drake) ℗ 2018 OVO Sound/Warner Bros. Records Inc. Lead Vocals: BlocBoy JB...
-
-
-URL: https://youtu.be/dM1mlgEA5zo
-Title: "Look Alive" - @BlocBoy_JB ft. ChampagnePapi | @THEFUTUREKINGZ x AYO & TEO x @_TWEEEZY
-Description: 
-
-
-URL: https://youtu.be/Wd_idMpg_qQ
-Title: Joyner Lucas - Look Alive (Remix)
-Description: I'm Kind of A Big Deal Tour: http://www.joynerlucas.com/tour/ 508 Project Available on Spotify and iTunes: https://atlantic.lnk.to/508-507-2209 Follow Joyner: @joynerlucas Bookings: http://bit.ly/...
-
-
-URL: https://youtu.be/rPZtXYaY4do
-Title: Rae Sremmurd - Look Alive
-Description: Rae Sremmurd “SremmLife 2” available now iTunes: http://smarturl.it/SremmLife2 Apple Music: http://smarturl.it/SremmLife2.AP Google Play: http://smarturl.it/SremmLife2.GP Amazon: http://smart...
-
-
-Content to search$ 
+make run-microservices
 ```
 
-##### Python client
+Also don't forget to run Prometheus like this
 ```shell
-$ GOOGLE_APPLICATION_CREDENTIALS=~/Downloads/census-demos-237a8e1e41df.json python3 search.py
-Content to search$ SQL
-URL: https://youtu.be/7Vtl2WggqOg
-Title: SQL for Beginners. Learn basics  of SQL in 1 Hour
-Description: SQL is a special-purpose programming language designed for managing data in a relational database, and is used by a huge number of apps and organizations. Buy SQL Books from Amazon at http://amzn.t...
-
-
-URL: https://youtu.be/nWeW3sCmD2k
-Title: SQL Crash Course - Beginner to Intermediate
-Description: In this course we will cover all of the fundamentals of the SQL (Structured Query Language). This course is great for beginners and also intermediates. We will cover the following... Overview...
-
-
-URL: https://youtu.be/FR4QIeZaPeM
-Title: What is Database & SQL?
-Description: https://www.guru99.com/introduction-to-database-sql.html This Database tutorial explains the concept of DBMS (Database Management System), examples of real life DBMS systems and types of...
-
-
-Title: SQL Server tutorial for beginners
-Description: In this tutorial, we will start from the very basics and cover topics like joins, views, triggers, system functions, stored procedures, user defined scalar and table valued functions etc. These...
-
-
-URL: https://youtu.be/9Pzj7Aj25lw
-Title: Learn SQL in 1 Hour - SQL Basics for Beginners
-Description: A crash course in SQL. How to write SQL from scratch in 1 hour. In this video I show you how to write SQL using SQL Server and SQL Server Management Studio. We go through Creating a Database,...
+prometheus --config.file=prometheus.yml
 ```
+
+If you'd like to terminate all the running binaries/microservices, and have `pkill` in your shell, you can run:
+```shell
+make kill-microservices
+```
+
+### Clients
+
+Client|Language|Running it
+---|---|---
+Web UI|Javascript+HTML|Visit http://localhost:9778
+clients/client.go|Go|`go run clients/client.go`
+clients/client.py|Python3|`python3 clients/client.py`
+clients/client.sh|Shell|`./clients/client.sh`
+
+* The WebUI looks something like this
+![](./images/webui.jpg)
+
+### Inspecting traces and metrics
+You can examine traces and metrics by visiting
+* AWS X-Ray
+* Stackdriver
 
 ### Screenshots
 The clients' HTTP requests propagate their
