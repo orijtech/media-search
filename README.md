@@ -1,7 +1,7 @@
 ## media-search
 
-An app that uses BadgerDB as the key-value store for lightning speed.
-However this version of BadgerDB is instrumented with OpenCensus and
+An app that uses MongoDB as the key-value store for lightning speed.
+However this version of MongoDb is instrumented with OpenCensus and
 since it has context propagation, clients can send their traces
 end to end, receive and export them to their choices of backends.
 
@@ -95,5 +95,6 @@ insights such as:
 ![](./images/x-ray-http-request.png)
 
 #### DB operations
-![](./images/stackdriver-badgerdb.png)
-![](./images/x-ray-badgerdb.png)
+![](./images/stackdriver-request.png)
+![](./images/xray-request.png)
+![](./images/service-map.png)
