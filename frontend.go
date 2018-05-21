@@ -35,6 +35,7 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
+	"go.opencensus.io/zpages"
 
 	"github.com/orijtech/media-search/rpc"
 	"github.com/orijtech/otils"
@@ -45,22 +46,22 @@ var genIDClient rpc.GenIDClient
 var searchClient rpc.SearchClient
 
 func init() {
-	xe, err := xray.NewExporter(xray.WithVersion("latest"))
-	if err != nil {
-		log.Fatalf("X-Ray newExporter: %v", err)
-	}
 	se, err := stackdriver.NewExporter(stackdriver.Options{ProjectID: otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "census-demos")})
 	if err != nil {
-		log.Fatalf("Stackdriver newExporter: %v", err)
+		log.Fatalf("Stackdriver newExporter error: %v", err)
+	}
+	xe, err := xray.NewExporter(xray.WithVersion("latest"))
+	if err != nil {
+		log.Fatalf("AWS X-Ray newExporter error: %v", err)
 	}
 	pe, err := prometheus.NewExporter(prometheus.Options{Namespace: "mediasearch"})
 	if err != nil {
-		log.Fatalf("Prometheus newExporter: %v", err)
+		log.Fatalf("Prometheus newExporter error: %v", err)
 	}
 
 	// Now register the exporters
-	trace.RegisterExporter(xe)
 	trace.RegisterExporter(se)
+	trace.RegisterExporter(xe)
 	view.RegisterExporter(se)
 	view.RegisterExporter(pe)
 
@@ -71,8 +72,10 @@ func init() {
 		log.Fatal(http.ListenAndServe(":9888", mux))
 	}()
 
-	// And then set the trace config with the default sampler.
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	go func() {
+		log.Fatal(http.ListenAndServe(":7788", zpages.Handler))
+	}()
+
 	view.SetReportingPeriod(10 * time.Second)
 
 	mustKey := func(sk string) tag.Key {
@@ -167,6 +170,10 @@ func search(w http.ResponseWriter, r *http.Request) {
 	ctx, span := trace.StartSpan(r.Context(), "/search")
 	defer span.End()
 
+	if r.Method == "OPTIONS" {
+		return
+	}
+
 	q, err := rpc.ExtractQuery(ctx, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -174,6 +181,10 @@ func search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keywords := q.Keywords
+	if keywords == "" {
+		http.Error(w, "Expecting keywords", http.StatusBadRequest)
+		return
+	}
 	filter := bson.NewDocument(bson.EC.String("key", q.Keywords))
 
 	span.Annotate([]trace.Attribute{

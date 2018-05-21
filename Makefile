@@ -25,5 +25,10 @@ backends_bin:
 frontend_bin:
 	go build -o bin/frontend_mu  .
 
+build-microservices:
+	CGO_ENABLED=0 GOOS=linux go build -o ./bin/detailer_mu_linux ./detailer
+	CGO_ENABLED=0 GOOS=linux go build -o ./bin/backends_mu_linux ./backends
+	CGO_ENABLED=0 GOOS=linux go build -o ./bin/frontend_mu_linux .
+
 clean:
 	rm -rf bin/

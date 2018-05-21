@@ -162,7 +162,7 @@ function onSearchClick() {
 	sendRequest({
 		method: 'POST',
 		data: {"keywords": query, "maxResultsPerPage": 25},
-		url: 'http://localhost:9778/search',
+		url: window.location.origin + '/search',
 		successCallback: successCallback,
 		errorCallback: errorCallback
 	});

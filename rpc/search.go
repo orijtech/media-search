@@ -135,7 +135,7 @@ func (ss *Search) SearchIt(ctx context.Context, q *Query) (*SearchResults, error
 		}
 	}
 
-	if len(idListForDetails) > 0 {
+	if len(idListForDetails) > 0 && false {
 		log.Printf("Firing off callback for %#v\n", idListForDetails)
 		// Then fire off the callback to enable background
 		// retrieval of detailed information of found videos.

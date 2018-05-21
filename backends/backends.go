@@ -51,11 +51,13 @@ func init() {
 		log.Fatalf("Prometheus newExporter: %v", err)
 	}
 
-	// Now register the exporters
-	trace.RegisterExporter(xe)
+	// Register the trace exporters
 	trace.RegisterExporter(se)
-	view.RegisterExporter(se)
+	trace.RegisterExporter(xe)
+
+	// Register the metrics exporters
 	view.RegisterExporter(pe)
+	view.RegisterExporter(se)
 
 	// Serve the Prometheus metrics
 	go func() {
@@ -64,8 +66,6 @@ func init() {
 		log.Fatal(http.ListenAndServe(":9988", mux))
 	}()
 
-	// And then set the trace config with the default sampler.
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	view.SetReportingPeriod(10 * time.Second)
 }
 
