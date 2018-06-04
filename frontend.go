@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -86,6 +87,11 @@ func init() {
 		return k
 	}
 
+	// Register the views from MongoDB's Go driver
+	if err := view.Register(mongo.AllViews...); err != nil {
+		log.Fatalf("Failed to register MongoDB views: %v", err)
+	}
+
 	// And then for the custom views
 	err = view.Register([]*view.View{
 		{Name: "cache_hits", Description: "cache hits", Measure: cacheHits, Aggregation: view.Count()},
@@ -116,6 +122,10 @@ func init() {
 	log.Printf("mongoServerURI: %q\n", mongoServerURI)
 	if err != nil {
 		log.Fatalf("Failed to log into Mongo error: %v", err)
+	}
+	// Connect to the server
+	if err := mongoClient.Connect(context.Background()); err != nil {
+		log.Fatalf("Failed to connect to the MongoDB server: %v", err)
 	}
 	// Create or get the searches collection.
 	ytSearchesCollection = mongoClient.Database("media-searches").Collection("youtube_searches")
