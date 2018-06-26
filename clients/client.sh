@@ -19,6 +19,6 @@ while [ 1 ]
 do
     printf "Content to search$ "
     read F
-    curl "http://localhost:9778/search?keywords=$F"
+    curl "http://localhost:9779/search?keywords=$F"
     printf "\n\n"
 done

@@ -27,7 +27,6 @@ import (
 	gat "google.golang.org/api/googleapi/transport"
 	"google.golang.org/api/youtube/v3"
 
-	xray "github.com/census-instrumentation/opencensus-go-exporter-aws"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/plugin/ochttp"
@@ -63,10 +62,6 @@ func init() {
 		log.Fatalf("Creating YouTube client error: %v", err)
 	}
 
-	xe, err := xray.NewExporter(xray.WithVersion("latest"))
-	if err != nil {
-		log.Fatalf("X-Ray newExporter: %v", err)
-	}
 	se, err := stackdriver.NewExporter(stackdriver.Options{ProjectID: otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "census-demos")})
 	if err != nil {
 		log.Fatalf("Stackdriver newExporter: %v", err)
@@ -77,13 +72,11 @@ func init() {
 	}
 
 	// Now register the exporters
-	trace.RegisterExporter(xe)
 	trace.RegisterExporter(se)
 	view.RegisterExporter(se)
 	view.RegisterExporter(pe)
 
 	// Configure the tracer
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	view.SetReportingPeriod(10 * time.Second)
 
 	// Serve the Prometheus metrics

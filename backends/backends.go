@@ -25,8 +25,6 @@ import (
 
 	"google.golang.org/grpc"
 
-	xray "github.com/census-instrumentation/opencensus-go-exporter-aws"
-	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/plugin/ochttp"
@@ -38,35 +36,18 @@ import (
 )
 
 func init() {
-	xe, err := xray.NewExporter(xray.WithVersion("latest"))
-	if err != nil {
-		log.Fatalf("X-Ray newExporter: %v", err)
-	}
-	se, err := stackdriver.NewExporter(stackdriver.Options{ProjectID: otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "census-demos")})
+	se, err := stackdriver.NewExporter(stackdriver.Options{ProjectID: otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "cloudmemorystore-next")})
 	if err != nil {
 		log.Fatalf("Stackdriver newExporter: %v", err)
-	}
-	pe, err := prometheus.NewExporter(prometheus.Options{Namespace: "mediasearch"})
-	if err != nil {
-		log.Fatalf("Prometheus newExporter: %v", err)
 	}
 
 	// Register the trace exporters
 	trace.RegisterExporter(se)
-	trace.RegisterExporter(xe)
 
 	// Register the metrics exporters
-	view.RegisterExporter(pe)
 	view.RegisterExporter(se)
 
-	// Serve the Prometheus metrics
-	go func() {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", pe)
-		log.Fatal(http.ListenAndServe(":9988", mux))
-	}()
-
-	view.SetReportingPeriod(10 * time.Second)
+	view.SetReportingPeriod(90 * time.Second)
 }
 
 func main() {
