@@ -47,7 +47,10 @@ var genIDClient rpc.GenIDClient
 var searchClient rpc.SearchClient
 
 func init() {
-	se, err := stackdriver.NewExporter(stackdriver.Options{ProjectID: otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "census-demos")})
+	se, err := stackdriver.NewExporter(stackdriver.Options{
+		MetricPrefix: "mediasearch",
+		ProjectID:    otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "census-demos"),
+	})
 	if err != nil {
 		log.Fatalf("Stackdriver newExporter error: %v", err)
 	}
@@ -79,14 +82,6 @@ func init() {
 
 	view.SetReportingPeriod(10 * time.Second)
 
-	mustKey := func(sk string) tag.Key {
-		k, err := tag.NewKey(sk)
-		if err != nil {
-			log.Fatalf("Creating new key %q error: %v", sk, err)
-		}
-		return k
-	}
-
 	// Register the views from MongoDB's Go driver
 	if err := view.Register(mongo.AllViews...); err != nil {
 		log.Fatalf("Failed to register MongoDB views: %v", err)
@@ -98,16 +93,14 @@ func init() {
 		{Name: "cache_misses", Description: "cache misses", Measure: cacheMisses, Aggregation: view.Count()},
 		{
 			Name: "cache_insertion_errors", Description: "cache insertion errors",
-			Measure: cacheInsertionErrors, Aggregation: view.Count(), TagKeys: []tag.Key{mustKey("cache_errors")},
+			Measure: cacheInsertionErrors, Aggregation: view.Count(), TagKeys: []tag.Key{keyCacheType},
 		}, {
 
 			Name: "youtube_api_errors", Description: "youtube errors",
 			Measure: youtubeAPIErrors, Aggregation: view.Count(),
-			TagKeys: []tag.Key{mustKey("api"), mustKey("youtube_api")},
 		}, {
 			Name: "mongo_errors", Description: "MongoDB errors",
 			Measure: mongoErrors, Aggregation: view.Count(),
-			TagKeys: []tag.Key{mustKey("api"), mustKey("mongo")},
 		},
 	}...)
 	if err != nil {
@@ -207,11 +200,6 @@ func search(w http.ResponseWriter, r *http.Request) {
 	cachedKV := new(dbCacheKV)
 
 	switch err := dbRes.Decode(cachedKV); err {
-	default:
-		stats.Record(ctx, mongoErrors.M(1))
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-
 	case nil: // Cache hit!
 		if !reflect.DeepEqual(cachedKV, blankDBKV) {
 			span.Annotate([]trace.Attribute{
@@ -228,6 +216,12 @@ func search(w http.ResponseWriter, r *http.Request) {
 
 	case bson.ErrElementNotFound, mongo.ErrNoDocuments:
 		// Cache miss, now retrieve the results below
+
+	default:
+		stats.Record(ctx, mongoErrors.M(1))
+		// We've failed to decode but oh well, that was just a cache miss
+		// the user should still get their result back! Thus continue below
+		// to fetch the results from the search API.
 	}
 
 	// 2. Otherwise that was a cache-miss, now retrieve it then save it
@@ -273,6 +267,7 @@ func search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := ytSearchesCollection.InsertOne(ctx, insertKV); err != nil {
+		ctx, _ = tag.New(ctx, tag.Upsert(keyCacheType, "mongo"))
 		stats.Record(ctx, cacheInsertionErrors.M(1))
 	}
 
@@ -288,5 +283,14 @@ var (
 	youtubeAPIErrors = stats.Int64("youtube_api_errors", "the number of youtube API lookup errors", stats.UnitNone)
 	mongoErrors      = stats.Int64("mongo_errors", "the number of MongoDB errors", stats.UnitNone)
 
-	blankDBKV = new(dbCacheKV)
+	blankDBKV    = new(dbCacheKV)
+	keyCacheType = mustKey("cache_type")
 )
+
+func mustKey(sk string) tag.Key {
+	k, err := tag.NewKey(sk)
+	if err != nil {
+		log.Fatalf("Creating new key %q error: %v", sk, err)
+	}
+	return k
+}
