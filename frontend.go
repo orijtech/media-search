@@ -77,7 +77,9 @@ func init() {
 	}()
 
 	go func() {
-		log.Fatal(http.ListenAndServe(":7788", zpages.Handler))
+		mux := http.NewServeMux()
+		zpages.Handle(mux, "/debug")
+		log.Fatal(http.ListenAndServe(":7788", mux))
 	}()
 
 	view.SetReportingPeriod(10 * time.Second)
