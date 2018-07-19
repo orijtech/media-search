@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	xray "github.com/census-instrumentation/opencensus-go-exporter-aws"
 	"go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/plugin/ochttp"
@@ -36,13 +37,23 @@ import (
 )
 
 func init() {
-	se, err := stackdriver.NewExporter(stackdriver.Options{ProjectID: otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "cloudmemorystore-next")})
+	se, err := stackdriver.NewExporter(stackdriver.Options{
+		ProjectID:    otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "census-demos"),
+		MetricPrefix: "gosf",
+	})
 	if err != nil {
 		log.Fatalf("Stackdriver newExporter: %v", err)
 	}
 
+	// AWS X-Ray
+	xe, err := xray.NewExporter(xray.WithVersion("latest"))
+	if err != nil {
+		log.Fatalf("Failed to register AWS X-Ray exporter: %v", err)
+	}
+
 	// Register the trace exporters
 	trace.RegisterExporter(se)
+	trace.RegisterExporter(xe)
 
 	// Register the metrics exporters
 	view.RegisterExporter(se)
@@ -66,7 +77,10 @@ func main() {
 		log.Fatalf("Failed to retrieve %q from environment", key)
 	}
 	if err := view.Register(ochttp.DefaultClientViews...); err != nil {
-		log.Fatalf("Failed to register DefaultClientViews for YouTube client API's sake: %v", err)
+		log.Fatalf("Failed to register DefaultClientViews: %v", err)
+	}
+	if err := view.Register(ochttp.DefaultServerViews...); err != nil {
+		log.Fatalf("Failed to register DefaultServerViews: %v", err)
 	}
 
 	searchAPI, err := rpc.NewSearch(rpc.WithYouTubeAPIKey(envAPIKey))
@@ -84,6 +98,8 @@ func main() {
 		if err := view.Register(allViews...); err != nil {
 			log.Fatalf("Failed to register all HTTP views, error: %v", err)
 		}
+		allViews = append(ocgrpc.DefaultServerViews, ocgrpc.DefaultClientViews...)
+		_ = view.Register(allViews...)
 		mux := http.NewServeMux()
 		mux.Handle("/search", searchAPI)
 		mux.Handle("/id", genIDAPI)

@@ -25,6 +25,7 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 
+	xray "github.com/census-instrumentation/opencensus-go-exporter-aws"
 	"go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/plugin/ochttp"
@@ -32,6 +33,7 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
+	"go.opencensus.io/zpages"
 
 	"github.com/orijtech/media-search/rpc"
 	"github.com/orijtech/otils"
@@ -74,15 +76,31 @@ func main() {
 
 	// Create and register the exporters
 	se, err := stackdriver.NewExporter(stackdriver.Options{
-		ProjectID:    otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "cloudmemorystore-next"),
-		MetricPrefix: "mediasearch",
+		ProjectID:    otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "census-demos"),
+		MetricPrefix: "gosf",
 	})
 	if err != nil {
 		log.Fatalf("Stackdriver newExporter error: %v", err)
 	}
 
+	// AWS X-Ray
+	xe, err := xray.NewExporter(xray.WithVersion("latest"))
+	if err != nil {
+		log.Fatalf("Failed to register AWS X-Ray exporter: %v", err)
+	}
+
+	// zpages
+	go func() {
+		mux := http.NewServeMux()
+		zpages.Handle(mux, "/debug")
+		if err := http.ListenAndServe(":7788", mux); err != nil {
+			log.Fatalf("Failed to serve zPages: %v", err)
+		}
+	}()
+
 	// Now register the exporters
 	trace.RegisterExporter(se)
+	trace.RegisterExporter(xe)
 	view.RegisterExporter(se)
 
 	view.SetReportingPeriod(90 * time.Second)
@@ -92,8 +110,8 @@ func main() {
 		log.Fatalf("Failed to register Redis views: %v", err)
 	}
 
-        // Set the sampling rate
-        trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	// Set the sampling rate
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 	// And then for the custom views
 	err = view.Register([]*view.View{
@@ -193,8 +211,9 @@ func search(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		span.SetStatus(trace.Status{Code: trace.StatusCodeInternal, Message: err.Error()})
 		stats.Record(ctx, redisErrors.M(1))
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+                // But we shouldn't exist ASAP!
+		// http.Error(w, err.Error(), http.StatusBadRequest)
+		// return
 	}
 
 	// 2. Otherwise that was a cache-miss, now retrieve it then save it
