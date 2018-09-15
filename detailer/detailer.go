@@ -27,9 +27,9 @@ import (
 	gat "google.golang.org/api/googleapi/transport"
 	"google.golang.org/api/youtube/v3"
 
+	"contrib.go.opencensus.io/exporter/stackdriver"
 	xray "github.com/census-instrumentation/opencensus-go-exporter-aws"
 	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
@@ -67,6 +67,7 @@ func init() {
 	if err != nil {
 		log.Fatalf("X-Ray newExporter: %v", err)
 	}
+
 	se, err := stackdriver.NewExporter(stackdriver.Options{ProjectID: otils.EnvOrAlternates("OPENCENSUS_GCP_PROJECTID", "census-demos")})
 	if err != nil {
 		log.Fatalf("Stackdriver newExporter: %v", err)

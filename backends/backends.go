@@ -25,9 +25,9 @@ import (
 
 	"google.golang.org/grpc"
 
+	"contrib.go.opencensus.io/exporter/stackdriver"
 	xray "github.com/census-instrumentation/opencensus-go-exporter-aws"
 	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats/view"

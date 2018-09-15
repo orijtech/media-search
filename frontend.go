@@ -27,9 +27,9 @@ import (
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 
+	"contrib.go.opencensus.io/exporter/stackdriver"
 	xray "github.com/census-instrumentation/opencensus-go-exporter-aws"
 	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
@@ -68,6 +68,9 @@ func init() {
 	trace.RegisterExporter(xe)
 	view.RegisterExporter(se)
 	view.RegisterExporter(pe)
+
+	// Always sample for demo purposes
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 	// Serve the Prometheus metrics
 	go func() {
